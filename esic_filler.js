@@ -32,9 +32,37 @@
     if (!isNaN(raw) && Number(raw) > 40000) {
       const d = new Date(Math.round((Number(raw) - 25569) * 86400 * 1000));
       const p = n => String(n).padStart(2,'0');
-      return `${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+      return `${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
     }
     return raw;
+  }
+
+  // Combine separate date and time into "DD/MM/YYYY HH:MM" for ESIC form
+  function combineDateTime(datePart, timePart) {
+    const d = normDate(datePart);
+    if (!d) return '';
+    const t = String(timePart||'').trim();
+    // Normalise time: accept H:MM, HH:MM, HHMM, or Excel decimal fraction
+    let timeStr = '00:00';
+    if (t) {
+      if (/^\d{1,2}:\d{2}$/.test(t)) {
+        // HH:MM or H:MM — pad hour
+        const [h,m] = t.split(':');
+        timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      } else if (/^\d{3,4}$/.test(t)) {
+        // HHMM format
+        timeStr = t.slice(0,-2).padStart(2,'0') + ':' + t.slice(-2);
+      } else if (!isNaN(t) && Number(t) > 0 && Number(t) < 1) {
+        // Excel time as decimal fraction (e.g. 0.291666 = 07:00)
+        const totalMins = Math.round(Number(t) * 24 * 60);
+        const hh = Math.floor(totalMins / 60);
+        const mm = totalMins % 60;
+        timeStr = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+      } else {
+        timeStr = t.slice(0,5); // fallback — take first 5 chars
+      }
+    }
+    return `${d} ${timeStr}`;
   }
 
   function parseWorkbook(xlsxWb) {
@@ -68,26 +96,31 @@
       }
       return rows;
     }
-    // Travel: data starts row 4 (Excel) = row index 3 (0-based after 2 header rows)
-    const tv = section('Travel_Settlement',1,10,3).map(r=>({
-      from:String(r[0]||'').trim(), to:String(r[1]||'').trim(),
-      startDate:normDate(r[2]), endDate:normDate(r[3]),
-      relaxation:String(r[4]||'').trim().toLowerCase()==='yes',
-      mode:String(r[5]||'').trim(), classCoach:String(r[6]||'').trim(),
-      bookedBy:String(r[7]||'').trim(), ticketNo:String(r[8]||'').trim(), amount:r[9]||0
+    // Travel: 13 cols (A-M), data from Excel row 4 = array index 3
+    // D=startDate E=startTime F=endDate G=endTime (split for user, combined for form)
+    const tv = section('Travel_Settlement',1,12,3).map(r=>({
+      from:      String(r[0]||'').trim(),
+      to:        String(r[1]||'').trim(),
+      startDate: combineDateTime(r[2], r[3]),  // D+E → DD/MM/YYYY HH:MM
+      endDate:   combineDateTime(r[4], r[5]),  // F+G → DD/MM/YYYY HH:MM
+      relaxation:String(r[6]||'').trim().toLowerCase()==='yes',
+      mode:      String(r[7]||'').trim(),
+      classCoach:String(r[8]||'').trim(),
+      bookedBy:  String(r[9]||'').trim(),
+      ticketNo:  String(r[10]||'').trim(),
+      amount:    r[11]||0
     })).filter(r=>r.from||r.to);
-    // B&L: confirmed IDs lodgingBoardingType{n}, accomodationType{n},
-    //   accomodationBookedBy{n}, accomodationFromDate{n}, accomodationToDate{n},
-    //   absenceDays{n}, billNo{n}, claimAmount{n}
-    const bl = section('Boarding_Lodging',1,8,2).map(r=>({
-      blType:  String(r[0]||'').trim(),   // lodgingBoardingType
-      accType: String(r[1]||'').trim(),   // accomodationType
-      bookedBy:String(r[2]||'').trim(),   // accomodationBookedBy
-      fromDate:normDate(r[3]),            // accomodationFromDate
-      toDate:  normDate(r[4]),            // accomodationToDate
-      days:    r[5]||'',                  // absenceDays
-      billNo:  String(r[6]||'').trim(),   // billNo
-      actual:  r[7]||0                    // claimAmount
+    // B&L: 11 cols (A-K), data from Excel row 4 = array index 3
+    // E=fromDate F=fromTime G=toDate H=toTime (split for user, combined for form)
+    const bl = section('Boarding_Lodging',1,10,3).map(r=>({
+      blType:  String(r[0]||'').trim(),           // lodgingBoardingType
+      accType: String(r[1]||'').trim(),            // accomodationType
+      bookedBy:String(r[2]||'').trim(),            // accomodationBookedBy
+      fromDate:combineDateTime(r[3], r[4]),        // E+F → DD/MM/YYYY HH:MM
+      toDate:  combineDateTime(r[5], r[6]),        // G+H → DD/MM/YYYY HH:MM
+      days:    r[7]||'',                           // absenceDays
+      billNo:  String(r[8]||'').trim(),            // billNo
+      actual:  r[9]||0                             // claimAmount
     })).filter(r=>r.blType||r.fromDate);
     // LC: confirmed IDs lcFromLocation{n}, lcToLocation{n}, lcFromDate{n}, lcToDate{n},
     //   lcModeofTravel{n}, noOfKms{n}, ratePerKM{n}, lcActualAmt{n}
