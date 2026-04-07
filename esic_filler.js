@@ -511,4 +511,31 @@
   sb.onclick=async function(){
     if(!pdata)return;
     sb.disabled=true; sb.textContent='⏳ Running…';
-    lg.innerHTML=''; dn.style.display='block'; dn.inne
+    lg.innerHTML=''; dn.style.display='block'; dn.innerHTML='<span style="color:#64748B">⏳ Opening HRMS and navigating… please wait.</span>'; setProg(3);
+    let ok=false;
+    try{ ok=await runFlow(pdata,addLog,setProg); }
+    catch(err){ addLog('Fatal: '+err.message,'er'); }
+    sb.disabled=false;
+    sb.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run again';
+    dn.style.display='block';
+    if(ok){
+      dn.innerHTML=`<strong style="color:#15803D;font-size:13px">✅ Form filled successfully!</strong><br><span style="color:#374151;font-size:12px">Please switch to the HRMS window, review all sections carefully, then click <strong>Submit</strong>.</span>`;
+      // Inject a visible banner on the settlement page itself
+      try{
+        const hw=window.open('','_esicHRMS');
+        if(hw && hw.document && hw.document.body){
+          const existing=hw.document.getElementById('_esicFilledBanner');
+          if(existing) existing.remove();
+          const banner=hw.document.createElement('div');
+          banner.id='_esicFilledBanner';
+          banner.style.cssText='position:fixed;top:0;left:0;width:100%;z-index:99999;background:#166534;color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-align:center;padding:12px 20px;box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;gap:12px';
+          banner.innerHTML='<span style="font-size:18px">✅</span> Form filled automatically. Please check all sections carefully before clicking Submit. <button onclick="this.parentElement.remove()" style="margin-left:16px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px">Dismiss</button>';
+          hw.document.body.insertBefore(banner,hw.document.body.firstChild);
+          hw.focus();
+        }
+      }catch(e){}
+    } else {
+      dn.innerHTML=`<strong style="color:#DC2626;font-size:13px">⚠ Completed with some issues.</strong><br><span style="color:#374151;font-size:12px">The form may be partially filled. Please review all sections before submitting.</span>`;
+    }
+  };
+})();
