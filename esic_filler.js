@@ -10,7 +10,7 @@
 (function() {
   // TEMPLATE_VERSION — bump this string whenever the Excel template changes.
   // Users uploading old templates will be prompted to download the latest.
-  const TEMPLATE_VERSION = 'V2';
+  const TEMPLATE_VERSION = 'V4';
   const TEMPLATE_URL = 'https://viveki1989.github.io/esic-settlement-filler/ESIC_Settlement_TemplateV2.xlsx';
 
   if (!location.href.includes('gateway.esic.gov.in') && !location.href.includes('esic.gov.in')) {
