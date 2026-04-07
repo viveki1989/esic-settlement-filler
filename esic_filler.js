@@ -8,6 +8,10 @@
 // ============================================================
 
 (function() {
+  // TEMPLATE_VERSION — bump this string whenever the Excel template changes.
+  // Users uploading old templates will be prompted to download the latest.
+  const TEMPLATE_VERSION = 'v3';
+  const TEMPLATE_URL = 'https://viveki1989.github.io/esic-settlement-filler/ESIC_Settlement_Template.xlsx';
 
   if (!location.href.includes('gateway.esic.gov.in') && !location.href.includes('esic.gov.in')) {
     alert('Please click this bookmarklet from the ESIC Gateway page (gateway.esic.gov.in)');
@@ -139,7 +143,18 @@
       desc:  String(r[0]||'').trim(),     // expenseType
       actual:r[1]||0                      // miscellAmount
     })).filter(r=>r.desc);
-    return { travelReqNo, travelRows:tv, blRows:bl, lcRows:lc, miscRows:ms };
+    // Version detection: v3 template has 13 cols in Travel_Settlement
+    // (split date/time). Old templates have 11. Detect by checking col E header.
+    let detectedVersion = 'v3'; // assume current
+    const wsTv = xlsxWb.Sheets['Travel_Settlement'];
+    if (wsTv) {
+      // Row 3 (index 2), col E (index 4) should contain "Time" in v3
+      const hdrE = wsTv[XLSX.utils.encode_cell({r:2, c:4})];
+      const hdrEval = hdrE ? String(hdrE.v||'').toLowerCase() : '';
+      if (!hdrEval.includes('time')) detectedVersion = 'old';
+    }
+
+    return { travelReqNo, travelRows:tv, blRows:bl, lcRows:lc, miscRows:ms, detectedVersion };
   }
 
   function setField(w, id, val) {
@@ -400,6 +415,10 @@
     ._fb{margin-top:auto;padding:14px 0 4px;font-size:11px;color:#64748B;text-align:center;border-top:1px solid #E2E8F0}
     ._fb a{color:#2563EB;text-decoration:none}
     ._fb a:hover{text-decoration:underline}
+    ._note{background:#F8FAFC;border:1px solid #E2E8F0;border-left:3px solid #2563EB;border-radius:0 8px 8px 0;padding:10px 13px;font-size:11px;color:#475569;line-height:1.6;margin-bottom:10px}
+    ._note strong{color:#1B2A4A;font-size:11.5px}
+    ._vmm{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 13px;font-size:12px;color:#92400E;display:none;margin-bottom:10px}
+    ._vmm a{color:#B45309;font-weight:600;text-decoration:underline;cursor:pointer}
   `;
   document.head.appendChild(sty);
 
@@ -411,6 +430,8 @@
       <button class="_pc" id="_bcp">×</button>
     </div>
     <div class="_pb">
+      <div class="_note"><strong>Note &nbsp;·&nbsp;</strong> This tool processes travel data only within your Excel file on your device. It does not transmit or store any data externally, does not collect credentials, and is intended solely to assist in filling travel settlement details in the ESIC Gateway.</div>
+      <div class="_vmm" id="_bvmm">⚠ You appear to be using an older Excel template. <a id="_bdl" href="#" target="_blank">Download the latest template</a> and re-upload before proceeding.</div>
       <div class="_tip">Stay on the Gateway page. Upload filled Excel — bookmarklet handles the rest.</div>
       <div class="_uz" id="_buz">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5">
@@ -457,7 +478,16 @@
         try{
           const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
           pdata=parseWorkbook(wb);
-          const{travelReqNo:tr,travelRows:tv,blRows:bl,lcRows:lc,miscRows:ms}=pdata;
+          const{travelReqNo:tr,travelRows:tv,blRows:bl,lcRows:lc,miscRows:ms,detectedVersion:dv}=pdata;
+          // Show version mismatch warning if old template detected
+          const vmm=document.getElementById('_bvmm');
+          const bdl=document.getElementById('_bdl');
+          if(dv==='old'){
+            vmm.style.display='block';
+            bdl.href=TEMPLATE_URL;
+          } else {
+            vmm.style.display='none';
+          }
           fn.innerHTML=tr
             ?`<strong style="color:#15803D">${file.name}</strong> &nbsp; TR: <strong>${tr}</strong> · ${tv.length} travel · ${bl.length} B&L · ${lc.length} LC · ${ms.length} misc`
             :`<span style="color:#DC2626">⚠ TR No. missing — fill HOW_TO_USE sheet row 3 col C</span>`;
@@ -481,31 +511,4 @@
   sb.onclick=async function(){
     if(!pdata)return;
     sb.disabled=true; sb.textContent='⏳ Running…';
-    lg.innerHTML=''; dn.style.display='block'; dn.innerHTML='<span style="color:#64748B">⏳ Opening HRMS and navigating… please wait.</span>'; setProg(3);
-    let ok=false;
-    try{ ok=await runFlow(pdata,addLog,setProg); }
-    catch(err){ addLog('Fatal: '+err.message,'er'); }
-    sb.disabled=false;
-    sb.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run again';
-    dn.style.display='block';
-    if(ok){
-      dn.innerHTML=`<strong style="color:#15803D;font-size:13px">✅ Form filled successfully!</strong><br><span style="color:#374151;font-size:12px">Please switch to the HRMS window, review all sections carefully, then click <strong>Submit</strong>.</span>`;
-      // Inject a visible banner on the settlement page itself
-      try{
-        const hw=window.open('','_esicHRMS');
-        if(hw && hw.document && hw.document.body){
-          const existing=hw.document.getElementById('_esicFilledBanner');
-          if(existing) existing.remove();
-          const banner=hw.document.createElement('div');
-          banner.id='_esicFilledBanner';
-          banner.style.cssText='position:fixed;top:0;left:0;width:100%;z-index:99999;background:#166534;color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-align:center;padding:12px 20px;box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;gap:12px';
-          banner.innerHTML='<span style="font-size:18px">✅</span> Form filled automatically. Please check all sections carefully before clicking Submit. <button onclick="this.parentElement.remove()" style="margin-left:16px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px">Dismiss</button>';
-          hw.document.body.insertBefore(banner,hw.document.body.firstChild);
-          hw.focus();
-        }
-      }catch(e){}
-    } else {
-      dn.innerHTML=`<strong style="color:#DC2626;font-size:13px">⚠ Completed with some issues.</strong><br><span style="color:#374151;font-size:12px">The form may be partially filled. Please review all sections before submitting.</span>`;
-    }
-  };
-})();
+    lg.innerHTML=''; dn.style.display='block'; dn.inne
