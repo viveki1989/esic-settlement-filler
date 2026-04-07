@@ -342,7 +342,7 @@
     ._ph span{font-size:11px;color:#93C5FD;display:block;margin-top:2px}
     ._pc{background:rgba(255,255,255,.15);border:none;color:#fff;width:27px;height:27px;
       border-radius:50%;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
-    ._pb{padding:16px;overflow-y:auto;flex:1}
+    ._pb{padding:16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:0}
     ._tip{background:#FFF7ED;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;
       padding:8px 12px;font-size:11.5px;color:#92400E;line-height:1.5;margin-bottom:12px}
     ._uz{border:2px dashed #CBD5E1;border-radius:10px;padding:22px 14px;text-align:center;
@@ -359,12 +359,14 @@
       font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;
       justify-content:center;gap:8px;transition:background .15s}
     ._sb:hover{background:#2563EB}._sb:disabled{background:#94A3B8;cursor:not-allowed}
-    ._lg{margin-top:12px;background:#0F172A;border-radius:9px;padding:11px 13px;
-      font-family:'Consolas',monospace;font-size:10.5px;max-height:300px;overflow-y:auto;display:none}
+    ._lg{display:none !important}
     ._ll{margin:2px 0}
     ._ok{color:#4ADE80}._er{color:#F87171}._sk{color:#64748B}._in{color:#93C5FD}._df{color:#CBD5E1}
     ._dn{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:11px 13px;
       font-size:12px;line-height:1.6;display:none;margin-top:10px}
+    ._fb{margin-top:auto;padding:14px 0 4px;font-size:11px;color:#64748B;text-align:center;border-top:1px solid #E2E8F0}
+    ._fb a{color:#2563EB;text-decoration:none}
+    ._fb a:hover{text-decoration:underline}
   `;
   document.head.appendChild(sty);
 
@@ -387,13 +389,14 @@
         <input type="file" id="_bfi" accept=".xlsx,.xls">
       </div>
       <div class="_ch" id="_bch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="_bfn">—</span></div>
-      <div class="_pw" id="_bpw"><div class="_pf" id="_bpf"></div></div>
+      <div class="_pw" id="_bpw" style="display:none"><div class="_pf" id="_bpf"></div></div>
       <button class="_sb" id="_bsb" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Start — open HRMS &amp; fill form
       </button>
       <div class="_lg" id="_blg"></div>
       <div class="_dn" id="_bdn"></div>
+      <div class="_fb">For any feedback/suggestions/queries, drop a mail at <a href="mailto:vivek.i@esic.gov.in">vivek.i@esic.gov.in</a></div>
     </div>`;
   document.body.appendChild(panel);
 
@@ -445,15 +448,31 @@
   sb.onclick=async function(){
     if(!pdata)return;
     sb.disabled=true; sb.textContent='⏳ Running…';
-    lg.innerHTML=''; lg.style.display='block'; dn.style.display='none'; setProg(3);
+    lg.innerHTML=''; dn.style.display='block'; dn.innerHTML='<span style="color:#64748B">⏳ Opening HRMS and navigating… please wait.</span>'; setProg(3);
     let ok=false;
     try{ ok=await runFlow(pdata,addLog,setProg); }
     catch(err){ addLog('Fatal: '+err.message,'er'); }
     sb.disabled=false;
     sb.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run again';
     dn.style.display='block';
-    dn.innerHTML=ok
-      ?`<strong style="color:#15803D">✅ Form filled!</strong> Switch to the HRMS window, review all sections, then click <strong>Submit</strong>.`
-      :`<strong style="color:#DC2626">⚠ Completed with issues.</strong> Check the log. B&L / LC / Misc IDs need one more explorer run — share results to finalise.`;
+    if(ok){
+      dn.innerHTML=`<strong style="color:#15803D;font-size:13px">✅ Form filled successfully!</strong><br><span style="color:#374151;font-size:12px">Please switch to the HRMS window, review all sections carefully, then click <strong>Submit</strong>.</span>`;
+      // Inject a visible banner on the settlement page itself
+      try{
+        const hw=window.open('','_esicHRMS');
+        if(hw && hw.document && hw.document.body){
+          const existing=hw.document.getElementById('_esicFilledBanner');
+          if(existing) existing.remove();
+          const banner=hw.document.createElement('div');
+          banner.id='_esicFilledBanner';
+          banner.style.cssText='position:fixed;top:0;left:0;width:100%;z-index:99999;background:#166534;color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-align:center;padding:12px 20px;box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;gap:12px';
+          banner.innerHTML='<span style="font-size:18px">✅</span> Form filled automatically. Please check all sections carefully before clicking Submit. <button onclick="this.parentElement.remove()" style="margin-left:16px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px">Dismiss</button>';
+          hw.document.body.insertBefore(banner,hw.document.body.firstChild);
+          hw.focus();
+        }
+      }catch(e){}
+    } else {
+      dn.innerHTML=`<strong style="color:#DC2626;font-size:13px">⚠ Completed with some issues.</strong><br><span style="color:#374151;font-size:12px">The form may be partially filled. Please review all sections before submitting.</span>`;
+    }
   };
 })();
