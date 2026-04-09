@@ -10,8 +10,8 @@
 (function() {
   // TEMPLATE_VERSION — bump this string whenever the Excel template changes.
   // Users uploading old templates will be prompted to download the latest.
-  const TEMPLATE_VERSION = 'V2';
-  const TEMPLATE_URL = `https://viveki1989.github.io/esic-settlement-filler/ESIC_Settlement_Template_${TEMPLATE_VERSION}.xlsx`;
+  const TEMPLATE_VERSION = 'v3';
+  const TEMPLATE_URL = 'https://viveki1989.github.io/esic-settlement-filler/ESIC_Settlement_Template.xlsx';
 
   if (!location.href.includes('gateway.esic.gov.in') && !location.href.includes('esic.gov.in')) {
     alert('Please click this bookmarklet from the ESIC Gateway page (gateway.esic.gov.in)');
@@ -93,7 +93,7 @@
       const ws = xlsxWb.Sheets[name]; if (!ws) return [];
       const data = XLSX.utils.sheet_to_json(ws, {header:1,defval:'',raw:true});
       const rows = [];
-      for (let i = r0; i < Math.min(data.length, r0+20); i++) {
+      for (let i = r0; i < Math.min(data.length, r0+200); i++) {
         const r = (data[i]||[]).slice(c1, c2+1);
         if (r.every(v => v===''||v===0||v===null)) continue;
         rows.push(r);
@@ -391,6 +391,7 @@
     ._pc{background:rgba(255,255,255,.15);border:none;color:#fff;width:27px;height:27px;
       border-radius:50%;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
     ._pb{padding:16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:0}
+    ._cap{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:7px;padding:6px 12px;font-size:11.5px;color:#1D4ED8;text-align:center;font-weight:600;margin-bottom:10px}
     ._tip{background:#FFF7ED;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;
       padding:8px 12px;font-size:11.5px;color:#92400E;line-height:1.5;margin-bottom:12px}
     ._uz{border:2px dashed #CBD5E1;border-radius:10px;padding:22px 14px;text-align:center;
@@ -433,6 +434,7 @@
       <div class="_note"><strong>Note &nbsp;·&nbsp;</strong> This tool processes travel data only within your Excel file on your device. It does not transmit or store any data externally, does not collect credentials, and is intended solely to assist in filling travel settlement details in the ESIC Gateway.</div>
       <div class="_vmm" id="_bvmm">⚠ You appear to be using an older Excel template. <a id="_bdl" href="#" target="_blank">Download the latest template</a> and re-upload before proceeding.</div>
       <div class="_tip">Stay on the Gateway page. Upload filled Excel — bookmarklet handles the rest.</div>
+      <div class="_cap">Supports up to 200 rows of data across all sections.</div>
       <div class="_uz" id="_buz">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
